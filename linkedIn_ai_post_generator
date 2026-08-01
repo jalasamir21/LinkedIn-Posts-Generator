@@ -1,0 +1,233 @@
+{
+  "name": "LinkedIn AI Post Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "weeks", "triggerAtDay": [1], "triggerAtHour": 9 }
+          ]
+        }
+      },
+      "id": "80ce7cc9-a043-4b31-b69e-2607628a74f7",
+      "name": "Weekly Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "url": "https://techcrunch.com/tag/artificial-intelligence/feed/",
+        "options": { "customFields": "contentSnippet,isoDate" }
+      },
+      "id": "36420803-ac28-4d85-945a-583e59cce45a",
+      "name": "Fetch AI News",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [224, 0]
+    },
+    {
+      "parameters": {},
+      "id": "2f622a9f-73a8-4162-aea7-9737f2fa83df",
+      "name": "Keep Latest Article",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [448, 0]
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            { "fieldToAggregate": "title" },
+            { "fieldToAggregate": "link" },
+            { "fieldToAggregate": "contentSnippet" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ef3a3bb2-0933-4c11-92c9-b976ef85b1d7",
+      "name": "Aggregate News Item",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [672, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c8b3dc40-eb2b-47c1-975d-574326485b32",
+              "leftValue": "={{ $json.title.length }}",
+              "operator": { "operation": "gt", "type": "number" },
+              "rightValue": 0
+            }
+          ],
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 }
+        },
+        "options": {}
+      },
+      "id": "8fb02821-e8ca-4217-8ec5-d42fe4d3ac57",
+      "name": "Has Fresh News?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [880, 0]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a LinkedIn post based on this AI news item:\nHeadline: {{ $json.title[0] }}\nSummary: {{ $json.contentSnippet[0] }}\nSource link: {{ $json.link[0] }}\n\nRewrite it in an engaging, first-person LinkedIn voice for an AI/ML engineer audience. Open with a hook, add one practical takeaway or opinion, keep it under 180 words, avoid markdown formatting, and end with 3-5 relevant hashtags.",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a ghostwriter crafting LinkedIn posts for an AI engineer who works on generative AI and agentic systems. Tone: confident, concise, no corporate buzzwords, no emojis spam (max 1-2)."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "19e4164a-04bf-4133-9e64-77d1813ded56",
+      "name": "Write Post From News",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [1072, 48]
+    },
+    {
+      "parameters": {
+        "model": { "__rl": true, "mode": "list", "value": "gpt-5-mini" },
+        "options": {}
+      },
+      "id": "50bf771a-6b7e-4add-9ef8-e89b5eac79f6",
+      "name": "OpenAI Model (News)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [1120, -144]
+    },
+    {
+      "parameters": {},
+      "id": "bb797950-6cc8-4fb3-85fb-d58a0db19446",
+      "name": "Merge Drafts",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [1360, 112]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=No fresh AI news article was available this week. Pick one interesting, currently-relevant topic in AI/ML or agentic systems yourself (e.g. a technique, tool category, or trend - not tied to a specific breaking news event) and write an original LinkedIn post about it. Open with a hook, add one practical takeaway or opinion, keep it under 180 words, avoid markdown formatting, and end with 3-5 relevant hashtags.",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You are a ghostwriter crafting LinkedIn posts for an AI engineer who works on generative AI and agentic systems. Tone: confident, concise, no corporate buzzwords, no emoji spam (max 1-2)."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "dbaa3d53-b165-40fd-9d24-a2d1c9dc8c8b",
+      "name": "Write Post From Topic",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [1120, 480]
+    },
+    {
+      "parameters": {
+        "model": { "__rl": true, "mode": "list", "value": "gpt-5-mini" },
+        "options": {}
+      },
+      "id": "250b8a10-0374-40f4-9e4e-999ee98c4a45",
+      "name": "OpenAI Model (Fallback)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [1120, 272]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "YOUR_EMAIL@example.com",
+        "subject": "LinkedIn AI Post - Approval Needed",
+        "message": "=Here is this week's draft LinkedIn post:\n\n{{ $json.text }}\n\nApprove to publish it to LinkedIn, or decline to skip this week.",
+        "options": { "limitWaitTime": { "values": { "resumeAmount": 3, "resumeUnit": "days" } } }
+      },
+      "id": "1ffcadb2-4760-4c58-aefb-b1674a9ce23a",
+      "name": "Request Approval",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1584, 112]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "auto-approved-check",
+              "leftValue": "={{ $json.data.approved }}",
+              "operator": { "operation": "equals", "type": "boolean" },
+              "rightValue": true
+            }
+          ],
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 3 }
+        }
+      },
+      "id": "86f0a0ac-f560-49d1-a133-98028cc9ca58",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1808, 112]
+    },
+    {
+      "parameters": {
+        "additionalFields": { "visibility": "PUBLIC" },
+        "authentication": "standard",
+        "operation": "create",
+        "person": "YOUR_LINKEDIN_PERSON_URN",
+        "postAs": "person",
+        "resource": "post",
+        "shareMediaCategory": "NONE",
+        "text": "={{ $(\"Merge Drafts\").item.json.text }}"
+      },
+      "id": "f876d6f4-9e99-4c7c-8c21-b4c940e11348",
+      "name": "Publish To LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [2032, 0]
+    },
+    {
+      "parameters": {},
+      "id": "e275d359-d846-49a4-9587-8b2b0c4d0f11",
+      "name": "Post Discarded",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2032, 224]
+    }
+  ],
+  "connections": {
+    "Weekly Trigger": { "main": [[{ "node": "Fetch AI News", "type": "main", "index": 0 }]] },
+    "Fetch AI News": { "main": [[{ "node": "Keep Latest Article", "type": "main", "index": 0 }]] },
+    "Keep Latest Article": { "main": [[{ "node": "Aggregate News Item", "type": "main", "index": 0 }]] },
+    "Aggregate News Item": { "main": [[{ "node": "Has Fresh News?", "type": "main", "index": 0 }]] },
+    "Has Fresh News?": {
+      "main": [
+        [{ "node": "Write Post From News", "type": "main", "index": 0 }],
+        [{ "node": "Write Post From Topic", "type": "main", "index": 0 }]
+      ]
+    },
+    "Write Post From News": { "main": [[{ "node": "Merge Drafts", "type": "main", "index": 0 }]] },
+    "OpenAI Model (News)": { "ai_languageModel": [[{ "node": "Write Post From News", "type": "ai_languageModel", "index": 0 }]] },
+    "Merge Drafts": { "main": [[{ "node": "Request Approval", "type": "main", "index": 0 }]] },
+    "Write Post From Topic": { "main": [[{ "node": "Merge Drafts", "type": "main", "index": 1 }]] },
+    "OpenAI Model (Fallback)": { "ai_languageModel": [[{ "node": "Write Post From Topic", "type": "ai_languageModel", "index": 0 }]] },
+    "Request Approval": { "main": [[{ "node": "Approved?", "type": "main", "index": 0 }]] },
+    "Approved?": {
+      "main": [
+        [{ "node": "Publish To LinkedIn", "type": "main", "index": 0 }],
+        [{ "node": "Post Discarded", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
